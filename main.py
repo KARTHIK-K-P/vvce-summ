@@ -1,39 +1,40 @@
 import streamlit as st
+import fitz  # PyMuPDF
 from transformers import pipeline
 
-# Load models for text summarization and document question answering
-summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
-question_answerer = pipeline("question-answering", model="deepset/roberta-base-squad2")
+# Load the summarization model
+summarizer = pipeline("summarization")
 
-# Streamlit app interface
-st.set_page_config(page_title="RightBrothers", page_icon=":sparkles:")
-st.title("RightBrothers")
+def extract_text_from_pdf(pdf_file):
+    # Open the PDF file
+    document = fitz.open(pdf_file)
+    text = ""
+    for page in document:
+        text += page.get_text()
+    return text
 
-# Display the logo
-st.image("2.png", use_column_width=True)
+def summarize_text(text):
+    # Summarize the text
+    summary = summarizer(text, max_length=130, min_length=30, do_sample=False)
+    return summary[0]['summary_text']
 
-# Option for text summarization
-option = st.selectbox("Select an option:", ("Text Summarization", "Document Question Answering"))
+# Streamlit app layout
+st.title("PDF Text Extractor and Summarizer")
 
-if option == "Text Summarization":
-    st.header("Text Summarization")
-    text_input = st.text_area("Enter text to summarize:", height=200)
-    if st.button("Summarize"):
-        if text_input:
-            summary = summarizer(text_input, max_length=150, min_length=30, do_sample=False)
+# Upload PDF file
+uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
+
+if uploaded_file is not None:
+    # Extract text from the PDF
+    text = extract_text_from_pdf(uploaded_file)
+    st.subheader("Extracted Text:")
+    st.write(text)
+
+    # Summarize the text
+    if st.button("Summarize Text"):
+        if text:
+            summary = summarize_text(text)
             st.subheader("Summary:")
-            st.write(summary[0]['summary_text'])
+            st.write(summary)
         else:
-            st.warning("Please enter text to summarize.")
-
-elif option == "Document Question Answering":
-    st.header("Document Question Answering")
-    doc_input = st.text_area("Enter the document text:", height=200)
-    question_input = st.text_input("Enter your question:")
-    if st.button("Get Answer"):
-        if doc_input and question_input:
-            answer = question_answerer(question=question_input, context=doc_input)
-            st.subheader("Answer:")
-            st.write(answer['answer'])
-        else:
-            st.warning("Please enter both the document and the question.")
+            st.warning("No text found to summarize.")
